@@ -2,6 +2,7 @@ import { React, useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import _ from 'lodash';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import CorrelationFlow from './CorrelationFlow';
 
 const ByteExplorer = () => {
   const [rawInput, setRawInput] = useState('');
@@ -407,32 +408,10 @@ const ByteExplorer = () => {
                   </div>
                 ) : (
                   <>
-                    {entropyInfo && (
-                      <div className="bg-gray-50 rounded p-4">
-                        <h3 className="font-medium mb-4">Entropy Analysis</h3>
-                        <div className="space-y-3">
-                          {entropyInfo.byteEntropies.map(({ byte, entropy }) => (
-                            <div key={byte} className="p-2 bg-white rounded shadow-sm">
-                              <span className="font-mono text-sm">
-                                Byte {byte} Entropy: {entropy.toFixed(3)} bits
-                              </span>
-                            </div>
-                          ))}
-                          {entropyInfo.jointEntropy !== null && (
-                            <div className="p-2 mt-4 bg-blue-50 rounded shadow-sm">
-                              <span className="font-mono text-sm">
-                                Joint Entropy: {entropyInfo.jointEntropy.toFixed(3)} bits
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
                     {correlationData.length > 0 && (
-                      <div className="mt-4">
-                        <CorrelationMatrix correlationData={correlationData} />
-                      </div>
+                    <div className="mt-4">
+                        <CorrelationFlow correlationData={correlationData} />
+                    </div>
                     )}
                   </>
                 )}
