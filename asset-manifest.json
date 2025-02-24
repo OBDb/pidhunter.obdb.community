@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/byte-explorer/static/css/main.87572d51.css",
-    "main.js": "/byte-explorer/static/js/main.7291d39f.js",
-    "static/js/453.515b1ce8.chunk.js": "/byte-explorer/static/js/453.515b1ce8.chunk.js",
-    "index.html": "/byte-explorer/index.html",
-    "main.87572d51.css.map": "/byte-explorer/static/css/main.87572d51.css.map",
-    "main.7291d39f.js.map": "/byte-explorer/static/js/main.7291d39f.js.map",
-    "453.515b1ce8.chunk.js.map": "/byte-explorer/static/js/453.515b1ce8.chunk.js.map"
+    "main.css": "/static/css/main.87572d51.css",
+    "main.js": "/static/js/main.b144603f.js",
+    "static/js/453.515b1ce8.chunk.js": "/static/js/453.515b1ce8.chunk.js",
+    "index.html": "/index.html",
+    "main.87572d51.css.map": "/static/css/main.87572d51.css.map",
+    "main.b144603f.js.map": "/static/js/main.b144603f.js.map",
+    "453.515b1ce8.chunk.js.map": "/static/js/453.515b1ce8.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.87572d51.css",
-    "static/js/main.7291d39f.js"
+    "static/js/main.b144603f.js"
   ]
 }
