@@ -14,6 +14,42 @@ const ByteExplorer = () => {
   const [groupingMode, setGroupingMode] = useState(false);
   const [currentGroup, setCurrentGroup] = useState([]);
 
+  // Create a component to display highlighted hex data
+  const HighlightedHexData = ({ text, bytesPerLine, selectedBytes, currentGroup }) => {
+    if (!text) return null;
+
+    const lines = text.trim().split('\n');
+    return (
+      <div className="font-mono text-sm whitespace-pre overflow-x-auto">
+        {lines.map((line, lineIdx) => (
+          <div key={lineIdx} className="flex">
+            <span className="text-gray-500 mr-4 select-none">
+              {lineIdx.toString().padStart(4, '0')}:
+            </span>
+            {Array.from({ length: Math.ceil(line.length / 2) }, (_, i) => {
+              const byteStart = i * 2;
+              const byteStr = line.slice(byteStart, byteStart + 2);
+              const isSelected = selectedBytes.has(i);
+              const isGrouped = currentGroup.includes(i);
+
+              return (
+                <span
+                  key={i}
+                  className={`mx-0.5 ${
+                    isGrouped ? 'bg-green-100 text-green-800' :
+                    isSelected ? 'bg-blue-100 text-blue-800' : ''
+                  }`}
+                >
+                  {byteStr}
+                </span>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const processData = (input) => {
     try {
       const lines = input.trim().split('\n');
@@ -47,12 +83,12 @@ const ByteExplorer = () => {
         };
       });
 
-      // Calculate statistics for each byte position
-      const stats = {};
-      const numBytes = Object.keys(processedData[0]).length - 1;
-      setNumBytesPerLine(numBytes);
+      setData(processedData);
+      setNumBytesPerLine(Object.keys(processedData[0]).length - 1);
 
-      for (let i = 0; i < numBytes; i++) {
+      // Calculate statistics
+      const stats = {};
+      for (let i = 0; i < (Object.keys(processedData[0]).length - 1); i++) {
         const values = processedData.map(d => d[`byte${i}`]);
         stats[`byte${i}`] = {
           min: Math.min(...values),
@@ -61,16 +97,6 @@ const ByteExplorer = () => {
           stdDev: Math.sqrt(_.mean(values.map(v => Math.pow(v - _.mean(values), 2)))),
         };
       }
-
-      // Add combined values for existing groups
-      byteGroups.forEach((group, groupIndex) => {
-        processedData.forEach(sample => {
-          const combinedValue = combineBytes(group.bytes.map(b => sample[`byte${b}`]));
-          sample[`group${groupIndex}`] = combinedValue;
-        });
-      });
-
-      setData(processedData);
       setByteStats(stats);
       setError('');
     } catch (err) {
@@ -132,110 +158,16 @@ const ByteExplorer = () => {
     setData(updatedData);
   };
 
-  // Generate colors for lines
   const getLineColor = (index) => {
     const colors = [
-      '#2563eb', // blue
-      '#16a34a', // green
-      '#dc2626', // red
-      '#9333ea', // purple
-      '#ea580c', // orange
-      '#0891b2', // cyan
-      '#4f46e5', // indigo
-      '#be185d', // pink
+      '#2563eb', '#16a34a', '#dc2626', '#9333ea',
+      '#ea580c', '#0891b2', '#4f46e5', '#be185d'
     ];
     return colors[index % colors.length];
   };
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Input</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <textarea
-            className="w-full h-32 p-2 font-mono text-sm border rounded"
-            placeholder="Paste hex data here (one line per sample)"
-            value={rawInput}
-            onChange={(e) => setRawInput(e.target.value)}
-          />
-          <div className="mt-2 flex justify-between items-center">
-            <button
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              onClick={() => processData(rawInput)}
-            >
-              Analyze Data
-            </button>
-            {error && <p className="text-red-500">{error}</p>}
-          </div>
-        </CardContent>
-      </Card>
-
-      {data.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex justify-between items-center">
-              <span>Byte Position Selector</span>
-              <div className="space-x-2">
-                <button
-                  className={`px-4 py-2 rounded ${groupingMode ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-                  onClick={() => setGroupingMode(!groupingMode)}
-                >
-                  {groupingMode ? 'Cancel Grouping' : 'Create Group'}
-                </button>
-                {groupingMode && currentGroup.length > 0 && (
-                  <button
-                    className="px-4 py-2 bg-green-500 text-white rounded"
-                    onClick={createGroup}
-                  >
-                    Save Group
-                  </button>
-                )}
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-8 gap-2">
-              {Array.from({ length: numBytesPerLine }, (_, i) => (
-                <button
-                  key={i}
-                  onClick={() => toggleByte(i)}
-                  className={`p-2 text-sm font-mono border rounded hover:bg-gray-100
-                    ${currentGroup.includes(i) ? 'bg-green-100 border-green-500' :
-                      selectedBytes.has(i) ? 'bg-blue-100 border-blue-500' : 'bg-white'}
-                    ${byteStats[`byte${i}`]?.stdDev > 0 ? 'text-black' : 'text-gray-400'}`}
-                >
-                  {i.toString().padStart(2, '0')}
-                </button>
-              ))}
-            </div>
-
-            {byteGroups.length > 0 && (
-              <div className="mt-4">
-                <h3 className="font-medium mb-2">Byte Groups:</h3>
-                <div className="space-y-2">
-                  {byteGroups.map((group) => (
-                    <div key={group.id} className="flex items-center space-x-2 p-2 border rounded">
-                      <span className="font-medium">{group.name}:</span>
-                      <span className="font-mono">
-                        Bytes [{group.bytes.join(', ')}]
-                      </span>
-                      <button
-                        className="ml-auto px-2 py-1 text-red-500 hover:bg-red-50 rounded"
-                        onClick={() => removeGroup(group.id)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {(selectedBytes.size > 0 || byteGroups.length > 0) && (
         <Card>
           <CardHeader>
@@ -314,6 +246,106 @@ const ByteExplorer = () => {
           </CardContent>
         </Card>
       )}
+
+      {data.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex justify-between items-center">
+              <span>Byte Position Selector</span>
+              <div className="space-x-2">
+                <button
+                  className={`px-4 py-2 rounded ${groupingMode ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                  onClick={() => setGroupingMode(!groupingMode)}
+                >
+                  {groupingMode ? 'Cancel Grouping' : 'Create Group'}
+                </button>
+                {groupingMode && currentGroup.length > 0 && (
+                  <button
+                    className="px-4 py-2 bg-green-500 text-white rounded"
+                    onClick={createGroup}
+                  >
+                    Save Group
+                  </button>
+                )}
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-8 gap-2">
+              {Array.from({ length: numBytesPerLine }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => toggleByte(i)}
+                  className={`p-2 text-sm font-mono border rounded hover:bg-gray-100
+                    ${currentGroup.includes(i) ? 'bg-green-100 border-green-500' :
+                      selectedBytes.has(i) ? 'bg-blue-100 border-blue-500' : 'bg-white'}
+                    ${byteStats[`byte${i}`]?.stdDev > 0 ? 'text-black' : 'text-gray-400'}`}
+                >
+                  {i.toString().padStart(2, '0')}
+                </button>
+              ))}
+            </div>
+
+            {byteGroups.length > 0 && (
+              <div className="mt-4">
+                <h3 className="font-medium mb-2">Byte Groups:</h3>
+                <div className="space-y-2">
+                  {byteGroups.map((group) => (
+                    <div key={group.id} className="flex items-center space-x-2 p-2 border rounded">
+                      <span className="font-medium">{group.name}:</span>
+                      <span className="font-mono">
+                        Bytes [{group.bytes.join(', ')}]
+                      </span>
+                      <button
+                        className="ml-auto px-2 py-1 text-red-500 hover:bg-red-50 rounded"
+                        onClick={() => removeGroup(group.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Input</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <textarea
+              className="w-full h-32 p-2 font-mono text-sm border rounded"
+              placeholder="Paste hex data here (one line per sample)"
+              value={rawInput}
+              onChange={(e) => setRawInput(e.target.value)}
+            />
+            <div className="flex justify-between items-center">
+              <button
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                onClick={() => processData(rawInput)}
+              >
+                Analyze Data
+              </button>
+              {error && <p className="text-red-500">{error}</p>}
+            </div>
+            {rawInput && (
+              <div className="mt-4 border rounded p-4 bg-gray-50">
+                <h3 className="text-sm font-medium mb-2">Data Preview:</h3>
+                <HighlightedHexData
+                  text={rawInput}
+                  bytesPerLine={numBytesPerLine}
+                  selectedBytes={selectedBytes}
+                  currentGroup={currentGroup}
+                />
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
