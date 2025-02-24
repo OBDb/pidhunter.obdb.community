@@ -249,7 +249,17 @@ const ByteExplorer = () => {
   };
 
   const CorrelationMatrix = ({ correlationData }) => {
-    if (!correlationData.length) return null;
+    const CORRELATION_THRESHOLD = 0.7; // Show only strong correlations (absolute value > 0.7)
+    const significantCorrelations = correlationData.filter(
+      ({ correlation }) => Math.abs(correlation) > CORRELATION_THRESHOLD
+    );
+
+    if (!significantCorrelations.length) return (
+      <div className="mt-4">
+        <h3 className="font-medium mb-2">Byte Correlations:</h3>
+        <p className="text-gray-500 italic">No significant correlations found (threshold: ±{CORRELATION_THRESHOLD})</p>
+      </div>
+    );
 
     const getCorrelationColor = (correlation) => {
       // Convert correlation from [-1, 1] to [0, 1] for color scale
@@ -262,9 +272,9 @@ const ByteExplorer = () => {
 
     return (
       <div className="mt-4">
-        <h3 className="font-medium mb-2">Byte Correlations:</h3>
+        <h3 className="font-medium mb-2">Strong Byte Correlations (|r| > {CORRELATION_THRESHOLD}):</h3>
         <div className="grid grid-cols-1 gap-2">
-          {correlationData.map(({ byte1, byte2, correlation }, idx) => (
+          {significantCorrelations.map(({ byte1, byte2, correlation }, idx) => (
             <div
               key={idx}
               className="p-2 rounded"
@@ -285,112 +295,154 @@ const ByteExplorer = () => {
 
   return (
     <div className="space-y-4">
-      {(selectedBytes.size > 0 || byteGroups.length > 0) && (
         <Card>
           <CardHeader>
             <CardTitle>Value Changes Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-96">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="index"
-                    label={{ value: 'Sample Number', position: 'bottom' }}
-                  />
-                  <YAxis
-                    label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
-                  />
-                  <Tooltip />
-                  <Legend />
-                  {Array.from(selectedBytes).map((byteNum, idx) => (
-                    <Line
-                      key={`byte${byteNum}`}
-                      type="monotone"
-                      dataKey={`byte${byteNum}`}
-                      name={`Byte ${byteNum}`}
-                      stroke={getLineColor(idx)}
-                      dot={false}
-                    />
-                  ))}
-                  {byteGroups.map((group, idx) => (
-                    <Line
-                      key={`group${group.id}`}
-                      type="monotone"
-                      dataKey={`group${group.id}`}
-                      name={`${group.name} [${group.bytes.join(', ')}]`}
-                      stroke={getLineColor(idx + selectedBytes.size)}
-                      dot={false}
-                      strokeWidth={2}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            {entropyInfo && (
-              <div className="mt-4 p-4 bg-gray-50 rounded">
-                <h3 className="font-medium mb-2">Entropy Analysis:</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {entropyInfo.byteEntropies.map(({ byte, entropy }) => (
-                    <div key={byte} className="p-2">
-                      <span className="font-mono">
-                        Byte {byte} Entropy: {entropy.toFixed(3)} bits
-                      </span>
+            <div className="grid grid-cols-3 gap-4">
+              {/* Chart section - takes up 2/3 of the width */}
+              <div className="col-span-2">
+                <div className="h-96 relative">
+                  {(data.length === 0 || (selectedBytes.size === 0 && byteGroups.length === 0)) ? (
+                    (data.length === 0) ? (
+                    // Empty state message
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50 rounded border border-dashed border-gray-300">
+                      <div className="text-center text-gray-500">
+                        <p className="text-lg font-medium mb-2">No Data Available</p>
+                        <p className="text-sm">Paste your hex data below to begin analysis</p>
+                      </div>
                     </div>
-                  ))}
-                  {entropyInfo.jointEntropy !== null && (
-                    <div className="col-span-2 p-2 bg-blue-50">
-                      <span className="font-mono">
-                        Joint Entropy: {entropyInfo.jointEntropy.toFixed(3)} bits
-                      </span>
+                    ) : (
+                    // Empty state message
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50 rounded border border-dashed border-gray-300">
+                        <div className="text-center text-gray-500">
+                        <p className="text-lg font-medium mb-2">No Bytes Selected</p>
+                        <p className="text-sm">Select bytes below to begin analysis</p>
+                        </div>
                     </div>
+                    )
+                  ) : (
+                    // Actual chart when data is available
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="index"
+                          label={{ value: 'Sample Number', position: 'bottom' }}
+                        />
+                        <YAxis
+                          label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
+                        />
+                        <Tooltip />
+                        <Legend />
+                        {Array.from(selectedBytes).map((byteNum, idx) => (
+                          <Line
+                            key={`byte${byteNum}`}
+                            type="monotone"
+                            dataKey={`byte${byteNum}`}
+                            name={`Byte ${byteNum}`}
+                            stroke={getLineColor(idx)}
+                            dot={false}
+                          />
+                        ))}
+                        {byteGroups.map((group, idx) => (
+                          <Line
+                            key={`group${group.id}`}
+                            type="monotone"
+                            dataKey={`group${group.id}`}
+                            name={`${group.name} [${group.bytes.join(', ')}]`}
+                            stroke={getLineColor(idx + selectedBytes.size)}
+                            dot={false}
+                            strokeWidth={2}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
                   )}
                 </div>
-              </div>
-            )}
 
-            {correlationData.length > 0 && (
-              <CorrelationMatrix correlationData={correlationData} />
-            )}
-
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              {Array.from(selectedBytes).map((byteNum, idx) => (
-                <div key={byteNum} className="p-3 border rounded">
-                  <p className="font-medium" style={{color: getLineColor(idx)}}>
-                    Byte {byteNum}:
-                  </p>
-                  <p>Range: {byteStats[`byte${byteNum}`]?.min} - {byteStats[`byte${byteNum}`]?.max}</p>
-                  <p>Mean: {byteStats[`byte${byteNum}`]?.mean.toFixed(2)}</p>
-                  <p>StdDev: {byteStats[`byte${byteNum}`]?.stdDev.toFixed(2)}</p>
-                </div>
-              ))}
-              {byteGroups.map((group, idx) => {
-                const groupValues = data.map(d => d[`group${group.id}`]);
-                const stats = {
-                  min: Math.min(...groupValues),
-                  max: Math.max(...groupValues),
-                  mean: _.mean(groupValues),
-                  stdDev: Math.sqrt(_.mean(groupValues.map(v => Math.pow(v - _.mean(groupValues), 2))))
-                };
-                return (
-                  <div key={group.id} className="p-3 border rounded">
-                    <p className="font-medium" style={{color: getLineColor(idx + selectedBytes.size)}}>
-                      {group.name} [Bytes {group.bytes.join(', ')}]:
-                    </p>
-                    <p>Range: {stats.min} - {stats.max}</p>
-                    <p>Mean: {stats.mean.toFixed(2)}</p>
-                    <p>StdDev: {stats.stdDev.toFixed(2)}</p>
+                {/* Show stats only when there's data */}
+                {(data.length === 0 || (selectedBytes.size === 0 && byteGroups.length === 0)) && (
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    {Array.from(selectedBytes).map((byteNum, idx) => (
+                      <div key={byteNum} className="p-3 border rounded">
+                        <p className="font-medium" style={{color: getLineColor(idx)}}>
+                          Byte {byteNum}:
+                        </p>
+                        <p>Range: {byteStats[`byte${byteNum}`]?.min} - {byteStats[`byte${byteNum}`]?.max}</p>
+                        <p>Mean: {byteStats[`byte${byteNum}`]?.mean.toFixed(2)}</p>
+                        <p>StdDev: {byteStats[`byte${byteNum}`]?.stdDev.toFixed(2)}</p>
+                      </div>
+                    ))}
+                    {byteGroups.map((group, idx) => {
+                      const groupValues = data.map(d => d[`group${group.id}`]);
+                      const stats = {
+                        min: Math.min(...groupValues),
+                        max: Math.max(...groupValues),
+                        mean: _.mean(groupValues),
+                        stdDev: Math.sqrt(_.mean(groupValues.map(v => Math.pow(v - _.mean(groupValues), 2))))
+                      };
+                      return (
+                        <div key={group.id} className="p-3 border rounded">
+                          <p className="font-medium" style={{color: getLineColor(idx + selectedBytes.size)}}>
+                            {group.name} [Bytes {group.bytes.join(', ')}]:
+                          </p>
+                          <p>Range: {stats.min} - {stats.max}</p>
+                          <p>Mean: {stats.mean.toFixed(2)}</p>
+                          <p>StdDev: {stats.stdDev.toFixed(2)}</p>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                )}
+              </div>
+
+              {/* Entropy information section - takes up 1/3 of the width */}
+              <div className="col-span-1">
+                {(data.length === 0 || (selectedBytes.size === 0 && byteGroups.length === 0)) ? (
+                  <div className="bg-gray-50 rounded p-4 text-center text-gray-500">
+                    <p>Statistical analysis will appear here</p>
+                    <p className="text-sm mt-2">Select bytes to view entropy and correlation data</p>
+                  </div>
+                ) : (
+                  <>
+                    {entropyInfo && (
+                      <div className="bg-gray-50 rounded p-4">
+                        <h3 className="font-medium mb-4">Entropy Analysis</h3>
+                        <div className="space-y-3">
+                          {entropyInfo.byteEntropies.map(({ byte, entropy }) => (
+                            <div key={byte} className="p-2 bg-white rounded shadow-sm">
+                              <span className="font-mono text-sm">
+                                Byte {byte} Entropy: {entropy.toFixed(3)} bits
+                              </span>
+                            </div>
+                          ))}
+                          {entropyInfo.jointEntropy !== null && (
+                            <div className="p-2 mt-4 bg-blue-50 rounded shadow-sm">
+                              <span className="font-mono text-sm">
+                                Joint Entropy: {entropyInfo.jointEntropy.toFixed(3)} bits
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {correlationData.length > 0 && (
+                      <div className="mt-4">
+                        <CorrelationMatrix correlationData={correlationData} />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
-      )}
 
-{data.length > 0 && (
+
+        {data.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex justify-between items-center">
