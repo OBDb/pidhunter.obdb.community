@@ -247,7 +247,7 @@ const ByteExplorer = () => {
         </Card>
       )}
 
-      {data.length > 0 && (
+{data.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex justify-between items-center">
@@ -273,16 +273,22 @@ const ByteExplorer = () => {
           <CardContent>
             <div className="grid grid-cols-8 gap-2">
               {Array.from({ length: numBytesPerLine }, (_, i) => (
-                <button
-                  key={i}
-                  onClick={() => toggleByte(i)}
-                  className={`p-2 text-sm font-mono border rounded hover:bg-gray-100
-                    ${currentGroup.includes(i) ? 'bg-green-100 border-green-500' :
-                      selectedBytes.has(i) ? 'bg-blue-100 border-blue-500' : 'bg-white'}
-                    ${byteStats[`byte${i}`]?.stdDev > 0 ? 'text-black' : 'text-gray-400'}`}
-                >
-                  {i.toString().padStart(2, '0')}
-                </button>
+                <div key={i} className="flex flex-col">
+                  <button
+                    onClick={() => toggleByte(i)}
+                    className={`p-2 text-sm font-mono border rounded hover:bg-gray-100
+                      ${currentGroup.includes(i) ? 'bg-green-100 border-green-500' :
+                        selectedBytes.has(i) ? 'bg-blue-100 border-blue-500' : 'bg-white'}
+                      ${byteStats[`byte${i}`]?.stdDev > 0 ? 'text-black font-medium' : 'text-gray-400'}`}
+                  >
+                    {i.toString().padStart(2, '0')}
+                    <div className="text-xs text-gray-500 mt-1 text-center">
+                        {byteStats[`byte${i}`] ?
+                        `${byteStats[`byte${i}`].min}-${byteStats[`byte${i}`].max}` :
+                        'n/a'}
+                    </div>
+                  </button>
+                </div>
               ))}
             </div>
 
@@ -290,20 +296,33 @@ const ByteExplorer = () => {
               <div className="mt-4">
                 <h3 className="font-medium mb-2">Byte Groups:</h3>
                 <div className="space-y-2">
-                  {byteGroups.map((group) => (
-                    <div key={group.id} className="flex items-center space-x-2 p-2 border rounded">
-                      <span className="font-medium">{group.name}:</span>
-                      <span className="font-mono">
-                        Bytes [{group.bytes.join(', ')}]
-                      </span>
-                      <button
-                        className="ml-auto px-2 py-1 text-red-500 hover:bg-red-50 rounded"
-                        onClick={() => removeGroup(group.id)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
+                  {byteGroups.map((group) => {
+                    const groupValues = data.map(d => d[`group${group.id}`]);
+                    const range = groupValues.length > 0 ? {
+                      min: Math.min(...groupValues),
+                      max: Math.max(...groupValues)
+                    } : null;
+
+                    return (
+                      <div key={group.id} className="flex items-center space-x-2 p-2 border rounded">
+                        <span className="font-medium">{group.name}:</span>
+                        <span className="font-mono">
+                          Bytes [{group.bytes.join(', ')}]
+                        </span>
+                        {range && (
+                          <span className="text-xs text-gray-500">
+                            Range: {range.min}-{range.max}
+                          </span>
+                        )}
+                        <button
+                          className="ml-auto px-2 py-1 text-red-500 hover:bg-red-50 rounded"
+                          onClick={() => removeGroup(group.id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
