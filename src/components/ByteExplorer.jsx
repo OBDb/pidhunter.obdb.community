@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { React, useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import _ from 'lodash';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
@@ -13,6 +13,58 @@ const ByteExplorer = () => {
   const [numBytesPerLine, setNumBytesPerLine] = useState(0);
   const [groupingMode, setGroupingMode] = useState(false);
   const [currentGroup, setCurrentGroup] = useState([]);
+  const [correlationData, setCorrelationData] = useState([]);
+
+  // Calculate entropy for a single array of values
+  const calculateEntropy = (values) => {
+    const frequencies = _.countBy(values);
+    const probabilities = Object.values(frequencies).map(f => f / values.length);
+    return -probabilities.reduce((sum, p) => sum + p * Math.log2(p), 0);
+  };
+
+  // Calculate correlation between two arrays
+  const calculateCorrelation = (array1, array2) => {
+    const mean1 = _.mean(array1);
+    const mean2 = _.mean(array2);
+    const deviation1 = array1.map(x => x - mean1);
+    const deviation2 = array2.map(x => x - mean2);
+
+    const sum = deviation1.reduce((sum, _, i) => sum + deviation1[i] * deviation2[i], 0);
+    const sqrtProduct = Math.sqrt(
+      deviation1.reduce((sum, x) => sum + x * x, 0) *
+      deviation2.reduce((sum, x) => sum + x * x, 0)
+    );
+
+    return sqrtProduct === 0 ? 0 : sum / sqrtProduct;
+  };
+
+  // Update correlations whenever selected bytes change
+  useEffect(() => {
+    if (!data.length) return;
+
+    const selectedBytesArray = Array.from(selectedBytes);
+    if (selectedBytesArray.length > 1) {
+      const correlations = [];
+      for (let i = 0; i < selectedBytesArray.length; i++) {
+        for (let j = i + 1; j < selectedBytesArray.length; j++) {
+          const byte1 = selectedBytesArray[i];
+          const byte2 = selectedBytesArray[j];
+          const values1 = data.map(d => d[`byte${byte1}`]);
+          const values2 = data.map(d => d[`byte${byte2}`]);
+          const correlation = calculateCorrelation(values1, values2);
+
+          correlations.push({
+            byte1,
+            byte2,
+            correlation: correlation
+          });
+        }
+      }
+      setCorrelationData(correlations);
+    } else {
+      setCorrelationData([]);
+    }
+  }, [selectedBytes, data]);
 
   // Create a component to display highlighted hex data
   const HighlightedHexData = ({ text, bytesPerLine, selectedBytes, currentGroup }) => {
@@ -104,6 +156,36 @@ const ByteExplorer = () => {
     }
   };
 
+  // Calculate overall entropy for selected bytes
+  const calculateOverallEntropy = () => {
+    if (!data.length || !selectedBytes.size) return null;
+
+    // Calculate individual entropies
+    const byteEntropies = Array.from(selectedBytes).map(byteNum => {
+      const values = data.map(d => d[`byte${byteNum}`]);
+      return {
+        byte: byteNum,
+        entropy: calculateEntropy(values)
+      };
+    });
+
+    // Calculate joint entropy if multiple bytes are selected
+    let jointEntropy = null;
+    if (selectedBytes.size > 1) {
+      const jointValues = data.map(d =>
+        Array.from(selectedBytes)
+          .map(byteNum => d[`byte${byteNum}`])
+          .join(',')
+      );
+      jointEntropy = calculateEntropy(jointValues);
+    }
+
+    return {
+      byteEntropies,
+      jointEntropy
+    };
+  };
+
   const combineBytes = (byteValues) => {
     return byteValues.reduce((acc, val, idx) => {
       return acc + (val << (8 * (byteValues.length - 1 - idx)));
@@ -166,6 +248,41 @@ const ByteExplorer = () => {
     return colors[index % colors.length];
   };
 
+  const CorrelationMatrix = ({ correlationData }) => {
+    if (!correlationData.length) return null;
+
+    const getCorrelationColor = (correlation) => {
+      // Convert correlation from [-1, 1] to [0, 1] for color scale
+      const normalized = (correlation + 1) / 2;
+      // Use a blue-white-red color scale
+      const r = Math.round(255 * (1 - normalized));
+      const b = Math.round(255 * normalized);
+      return `rgb(${r}, 240, ${b})`;
+    };
+
+    return (
+      <div className="mt-4">
+        <h3 className="font-medium mb-2">Byte Correlations:</h3>
+        <div className="grid grid-cols-1 gap-2">
+          {correlationData.map(({ byte1, byte2, correlation }, idx) => (
+            <div
+              key={idx}
+              className="p-2 rounded"
+              style={{ backgroundColor: getCorrelationColor(correlation) }}
+            >
+              <span className="font-mono">
+                Byte {byte1} ↔ Byte {byte2}: {correlation.toFixed(3)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Add entropy information to the existing stats display
+  const entropyInfo = calculateOverallEntropy();
+
   return (
     <div className="space-y-4">
       {(selectedBytes.size > 0 || byteGroups.length > 0) && (
@@ -211,6 +328,32 @@ const ByteExplorer = () => {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+
+            {entropyInfo && (
+              <div className="mt-4 p-4 bg-gray-50 rounded">
+                <h3 className="font-medium mb-2">Entropy Analysis:</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {entropyInfo.byteEntropies.map(({ byte, entropy }) => (
+                    <div key={byte} className="p-2">
+                      <span className="font-mono">
+                        Byte {byte} Entropy: {entropy.toFixed(3)} bits
+                      </span>
+                    </div>
+                  ))}
+                  {entropyInfo.jointEntropy !== null && (
+                    <div className="col-span-2 p-2 bg-blue-50">
+                      <span className="font-mono">
+                        Joint Entropy: {entropyInfo.jointEntropy.toFixed(3)} bits
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {correlationData.length > 0 && (
+              <CorrelationMatrix correlationData={correlationData} />
+            )}
 
             <div className="mt-4 grid grid-cols-2 gap-4">
               {Array.from(selectedBytes).map((byteNum, idx) => (
